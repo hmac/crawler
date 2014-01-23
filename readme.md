@@ -2,7 +2,7 @@ A very basic web crawler
 ========================
 
 Usage:
-````
+```ruby
 require './crawler.rb'
 
 # A scheme (http or https) is required.
@@ -12,4 +12,4 @@ crawler.crawl
 
 crawler.pages # a hash of all assets keyed by url
 crawler.to_json # JSON output
-````
+```
