@@ -11,5 +11,5 @@ crawler = Crawler.new("https://www.google.co.uk")
 crawler.crawl
 
 crawler.pages # a hash of all assets keyed by url
-crawler.to_json # JSON output
+crawler.to_json # the same thing in JSON
 ```
