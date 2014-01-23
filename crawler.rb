@@ -1,4 +1,5 @@
 require "./crawler_base"
+require "json"
 
 class Crawler
   def initialize(domain)
@@ -36,6 +37,10 @@ class Crawler
 
   def pages
     @pages
+  end
+
+  def to_json
+    JSON.dump(@pages)
   end
 
 end

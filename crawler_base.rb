@@ -9,11 +9,15 @@ class Crawler
     # If url starts with /, it's local
     # If it starts with the chosen domain, it's local
     # If it doesn't contain ://, it's local (e.g. "home.html")
-    if url[0] == "/" or url.match(Regexp.new("^"+@domain)) or !url.match(/:\/\//)
-      true
-    else
-      false
+    url = url.gsub(/\?.*/, "")
+
+    begin
+      uri = URI.parse(url)
+    rescue Exception => e
+      return false
     end
+
+    (uri.host.nil? or !!@domain.match(Regexp.escape(uri.host))) ? true : false
   end
 
   def make_local(url)
