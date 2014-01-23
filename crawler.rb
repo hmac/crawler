@@ -7,7 +7,6 @@ class Crawler
     @url = "/"
     @pages = {}
     @visited = []
-    @queue = [@url]
     parsed_url = URI.parse(@domain)
     @conn = Net::HTTP.new(parsed_url.host, parsed_url.port)
     @conn.use_ssl = true if @domain =~ /^https/
