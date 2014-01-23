@@ -1,6 +1,10 @@
 A very basic web crawler
 ========================
 
+Given a url, will recursively crawl all linked pages (on the same domain) and build a list of the static assets that each page depends on.
+It requires a full url, with scheme (http or https).
+given a subdomain, it will not leave it. i.e. if given `developer.google.com` it will not crawl any pages outside of `developer.google.com`
+
 Usage:
 ```ruby
 require './crawler.rb'
