@@ -6,7 +6,6 @@ class Crawler
     @domain = domain
     @url = "/"
     @pages = {}
-    @visited = []
     parsed_url = URI.parse(@domain)
     @conn = Net::HTTP.new(parsed_url.host, parsed_url.port)
     @conn.use_ssl = true if @domain =~ /^https/
@@ -14,9 +13,8 @@ class Crawler
 
   def crawl(url=nil)
     url ||= @url
-    return if url.nil? or @visited.include?(url)
-    puts url
-    @visited.push(url)
+    return if url.nil? or @pages.keys.include?(url)
+    puts "crawling #{url}"
 
     page = page(url)
     links = links_on_page(page)
