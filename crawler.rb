@@ -24,8 +24,8 @@ class Crawler
   # Once the threads have each fetched a page, we parse each one
   # and extract links and assets. Links are added to @queue,
   # and the loop starts from the beginning again.
-  def crawl(url)
-    url ||= @url
+  def crawl(debug=false)
+    url = @url
     scrape_page url, page(new_conn(), url)
     until @queue.empty?
       fetch_queue = Queue.new
@@ -41,7 +41,7 @@ class Crawler
       threads.each(&:join)
       fetch_queue.length.times do
         page = fetch_queue.pop
-        puts page[0]
+        puts page[0] if debug
         scrape_page(page[0], page[1])
       end
     end
@@ -58,6 +58,8 @@ class Crawler
   private
 
   def scrape_page(url, page)
+    return if page.nil?
+    page = Nokogiri::HTML(page)
     links = links_on_page(page)
     links = links
       .select { |l| local_link?(l) }
@@ -119,6 +121,9 @@ class Crawler
     uri = URI.parse url
     @scheme = uri.scheme
     @domain = uri.host
+    unless @scheme and @domain
+      throw "Invalid url. Need scheme (e.g. http://)"
+    end
   end
 
   def domain(scheme=nil)
@@ -142,9 +147,13 @@ class Crawler
   end
 
   def page(conn, url)
-    req = Net::HTTP::Get.new(url)
-    res = conn.request(req)
-    Nokogiri::HTML(res.body)
+    begin
+      req = Net::HTTP::Get.new(url)
+      res = conn.request(req)
+      res.body
+    rescue
+      nil
+    end
   end
 
 end
