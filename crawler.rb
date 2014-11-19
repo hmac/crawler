@@ -28,20 +28,20 @@ class Crawler
     url ||= @url
     scrape_page url, page(new_conn(), url)
     while not @queue.empty?
-      pages = Queue.new
+      fetch_queue = Queue.new
       threads = []
       16.times do
         threads << Thread.new do
           url = @queue.pop()
           if url != nil
             conn = new_conn()
-            pages << [url, page(conn, url)]
+            fetch_queue << [url, page(conn, url)]
           end
         end
       end
       threads.each(&:join)
-      pages.length.times do
-        page = pages.pop
+      fetch_queue.length.times do
+        page = fetch_queue.pop
         puts page[0]
         scrape_page(page[0], page[1])
       end
