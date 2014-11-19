@@ -25,6 +25,8 @@ class Crawler
     url = url.gsub(Regexp.new("^"+@domain), "")
     # Remove querystring
     url = url.gsub(/\?.*/, "")
+    # Remove url fragment
+    url = url.gsub(/#.*/, "")
     # add / if not present
     if url && url[0] != "/"
       url = "/"+url
@@ -43,9 +45,9 @@ class Crawler
     scripts+css+images
   end
 
-  def page(url)
+  def page(conn, url)
     req = Net::HTTP::Get.new(url)
-    res = @conn.request(req)
+    res = conn.request(req)
     Nokogiri::HTML(res.body)
   end
 
