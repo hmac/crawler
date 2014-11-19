@@ -5,7 +5,7 @@ require "thread"
 
 class Crawler
   def initialize(domain)
-    @domain = domain
+    @domain = format_domain domain
     @url = "/"
     @pages = {} # A hash of {url => assets} for each page visited
     @queue = [] # urls waiting to be visited
@@ -27,15 +27,14 @@ class Crawler
   def crawl(url)
     url ||= @url
     scrape_page url, page(new_conn(), url)
-    while not @queue.empty?
+    until @queue.empty?
       fetch_queue = Queue.new
       threads = []
-      16.times do
+      18.times do
         threads << Thread.new do
           url = @queue.pop()
           if url != nil
-            conn = new_conn()
-            fetch_queue << [url, page(conn, url)]
+            fetch_queue << [url, page(new_conn(), url)]
           end
         end
       end
@@ -60,7 +59,12 @@ class Crawler
 
   def scrape_page(url, page)
     links = links_on_page(page)
-    links = links.select { |l| local_link?(l) }.map { |l| make_local(l).strip }.reject { |l| l == "" }
+    links = links
+      .select { |l| local_link?(l) }
+      .map { |l| make_local(l).strip }
+      .reject { |l| l == "" }
+      .compact
+      .uniq
     assets = assets_on_page(page)
     @pages[url] = assets
     links.each do |l|
@@ -90,6 +94,10 @@ class Crawler
       return false
     end
 
+    unless (["http", "https"].member? uri.scheme) or uri.scheme.nil?
+      return false
+    end
+
     (uri.host.nil? or !!@domain.match(Regexp.escape(uri.host))) ? true : false
   end
 
@@ -107,15 +115,24 @@ class Crawler
     return url
   end
 
+  def format_domain(url)
+    uri = URI.parse url
+    uri.scheme + "://" + uri.host
+  end
+
   def links_on_page(page)
-    page.css("a").map { |a| a.attributes["href"] && a.attributes["href"].value }.compact.uniq
+    get_attr page.css("a"), "href"
   end
 
   def assets_on_page(page)
-    css = page.css("link").map { |l| l.attributes["href"] && l.attributes["href"].value }.compact.uniq
-    scripts = page.css("script").map { |l| l.attributes["src"] && l.attributes["src"].value }.compact.uniq
-    images = page.css("img").map { |l| l.attributes["src"] && l.attributes["src"].value }.compact.uniq
+    css = get_attr page.css("link"), "href"
+    scripts = get_attr page.css("script"), "src"
+    images = get_attr page.css("img"), "src"
     scripts+css+images
+  end
+
+  def get_attr(elems, attr)
+    elems.map { |e| e.attributes[attr] && e.attributes[attr].value }.compact.uniq
   end
 
   def page(conn, url)
