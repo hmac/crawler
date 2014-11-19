@@ -5,7 +5,7 @@ require "thread"
 
 class Crawler
   def initialize(domain)
-    @domain = format_domain domain
+    parse_domain domain
     @url = "/"
     @pages = {} # A hash of {url => assets} for each page visited
     @queue = [] # urls waiting to be visited
@@ -62,9 +62,9 @@ class Crawler
     links = links
       .select { |l| local_link?(l) }
       .map { |l| make_local(l).strip }
+      .uniq
       .reject { |l| l == "" }
       .compact
-      .uniq
     assets = assets_on_page(page)
     @pages[url] = assets
     links.each do |l|
@@ -76,9 +76,9 @@ class Crawler
   end
 
   def new_conn
-    parsed_url = URI.parse(@domain)
+    parsed_url = URI.parse(domain)
     conn = Net::HTTP.new(parsed_url.host, parsed_url.port)
-    conn.use_ssl = true if @domain =~ /^https/
+    conn.use_ssl = true if domain =~ /^https/
     return conn
   end
 
@@ -103,7 +103,7 @@ class Crawler
 
   def make_local(url)
     # Remove http://domain.tld part
-    url = url.gsub(Regexp.new("^"+@domain), "")
+    url = url.gsub(Regexp.new("^https?:\/\/"+Regexp.escape(@domain)), "")
     # Remove querystring
     url = url.gsub(/\?.*/, "")
     # Remove url fragment
@@ -115,9 +115,15 @@ class Crawler
     return url
   end
 
-  def format_domain(url)
+  def parse_domain(url)
     uri = URI.parse url
-    uri.scheme + "://" + uri.host
+    @scheme = uri.scheme
+    @domain = uri.host
+  end
+
+  def domain(scheme=nil)
+    scheme ||= @scheme
+    scheme + "://" + @domain
   end
 
   def links_on_page(page)
