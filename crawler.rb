@@ -27,65 +27,58 @@ class Crawler
   def crawl(debug=false)
     url = @url
     scrape_page url, page(new_conn(), url)
-    fetch_read, fetch_write = IO.pipe
-    scrape_read, scrape_write = IO.pipe
+    worker_count = 50
 
-    fetch_write.puts @queue.pop until @queue.empty?
+    scrape_read_pipes = []
+    fetch_write_pipes = []
+    worker_count.times do
+      fetch_read, fetch_write = IO.pipe
+      scrape_read, scrape_write = IO.pipe
 
-    fork do
-      fetch_write.close
-      scrape_read.close
-      conn = new_conn
-      loop do
-        break unless (url = fetch_read.gets)
-        url = url.chomp
-        html = page(conn, url).gsub(/\n/, "")
-        unless html
-          puts url.inspect
+      fork do
+        fetch_write.close
+        scrape_read.close
+        conn = new_conn
+        loop do
+          break unless (url = fetch_read.gets)
+          url = url.chomp
+          html = page(conn, url).gsub(/\n/, "")
+          unless html
+            puts url.inspect
+          end
+          scrape_write.write Marshal.dump([url, html])
+          scrape_write.write "<<<EOF>>>"
         end
-        scrape_write.write Marshal.dump([url, html])
-        scrape_write.write "<<<EOF>>>"
+        scrape_write.close
       end
-      puts "worker has exited"
+
+      scrape_read_pipes << scrape_read
+      fetch_write_pipes << fetch_write
       scrape_write.close
+      fetch_read.close
     end
 
-    scrape_write.close
-    fetch_read.close
+    # Random distribute urls amongst workers
+    until @queue.empty?
+      fetch_write_pipes.sample.puts @queue.pop
+    end
 
     loop do
-      break unless (data = scrape_read.gets(sep="<<<EOF>>>"))
-      begin
+      reads, _, _ = IO.select(scrape_read_pipes, [], [], 1)
+      break if reads.nil?
+      reads.each do |pipe|
+        break unless (data = pipe.gets(sep="<<<EOF>>>"))
         url, html = Marshal.load data
-      rescue
-        puts "Marshal error: ", data.inspect
-        raise "error"
+        puts url if debug
+        scrape_page(url, html)
       end
-      puts url if debug
-      scrape_page(url, html)
-      fetch_write.puts @queue.pop until @queue.empty?
+      until @queue.empty?
+        fetch_write_pipes.sample.puts @queue.pop
+      end
     end
-    fetch_write.close
-    scrape_read.close
 
-    # until @queue.empty?
-    #   fetch_queue = Queue.new
-    #   threads = []
-    #   18.times do
-    #     threads << Thread.new do
-    #       url = @queue.pop()
-    #       if url != nil
-    #         fetch_queue << [url, page(new_conn(), url)]
-    #       end
-    #     end
-    #   end
-    #   threads.each(&:join)
-    #   fetch_queue.length.times do
-    #     page = fetch_queue.pop
-    #     puts page[0] if debug
-    #     scrape_page(page[0], page[1])
-    #   end
-    # end
+    fetch_write_pipes.each { |p| p.close }
+    scrape_read_pipes.each { |p| p.close }
   end
 
   def pages
