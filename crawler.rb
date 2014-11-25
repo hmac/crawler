@@ -12,18 +12,19 @@ class Crawler
   end
 
   # The main loop
-  # Here we prefetch the html pages in multiple threads in order
-  # to avoid waiting on the network.
-  # Ideally we'd want to use some sort of evented IO - (i.e.
-  # send off a load of requests in the main loop and register
-  # callback functions for when we get a response) but Ruby doesn't
-  # natively support this so this is what we're left with.
-  # We could also use a proper worker queue system Resque, which
-  # would simplify a lot of this.
-  #
-  # Once the threads have each fetched a page, we parse each one
-  # and extract links and assets. Links are added to @queue,
-  # and the loop starts from the beginning again.
+  # We fork the process 50 times to produce worker processes.
+  # Each worker has two pipes that it shares with the parent
+  # to enable bidirectional communication.
+  # When they get a url through their listening pipe, the workers
+  # will fetch the page and return it through the other pipe.
+  # The parent listens for pages on all the pipes it has with 
+  # the workers and scrapes the pages, adding new links to a queue
+  # from which urls are periodically distributed (randomly) amongst
+  # the workers.
+  # A better approach might be some sort of round-robin method, or
+  # letting the workers signal when they are not busy.
+  # We have to use a custom <<<EOF>>> marker to indicate the end of a
+  # message stream from a pipe because the html often contains newlines.
   def crawl(debug=false)
     url = @url
     scrape_page url, page(new_conn(), url)
@@ -58,7 +59,7 @@ class Crawler
       fetch_read.close
     end
 
-    # Random distribute urls amongst workers
+    # Randomly distribute urls amongst workers
     until @queue.empty?
       fetch_write_pipes.sample.puts @queue.pop
     end
